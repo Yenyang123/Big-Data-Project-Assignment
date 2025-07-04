@@ -122,4 +122,6 @@ def generate_dashboard_content(df_data):
         "Value": [round(r2_lin, 4), round(rmse_lin, 2), round(mae_lin, 2)]
     })
 
+    #Deathmap
+
 
