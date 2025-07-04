@@ -122,6 +122,20 @@ def generate_dashboard_content(df_data):
         "Value": [round(r2_lin, 4), round(rmse_lin, 2), round(mae_lin, 2)]
     })
 
-    #Deathmap
+    #Deaths Heatmap
+    pivot = df.pivot_table(index='Cause Name', columns='Year', values='Deaths', aggfunc='sum')
+    heatmap_fig = px.imshow(pivot, text_auto=True, aspect="auto", title="Heatmap of Deaths by Cause and Year")
+    heat_stats = pivot.describe().round(2).reset_index()
+
+    # K-Means Clustering
+    cluster_df = yearly.copy()
+    scaler = StandardScaler()
+    scaled = scaler.fit_transform(cluster_df[['Year', 'Deaths']])
+    kmeans = KMeans(n_clusters=3, random_state=42)
+    cluster_df['Cluster'] = kmeans.fit_predict(scaled)
+    cluster_fig = px.scatter(cluster_df, x='Year', y='Deaths', color='Cluster',
+                             title="K-Means Clustering of Deaths Over Time")
+
+
 
 
