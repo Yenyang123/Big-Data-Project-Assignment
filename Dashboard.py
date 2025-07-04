@@ -43,3 +43,18 @@ app.layout = dbc.Container([
     # Tabs component to display different analysis sections
     dbc.Tabs(id='tabs-content', children=[])
 ], fluid=True)
+
+# Helper function to create a Dash DataTable from a DataFrame
+def safe_table(dataframe):
+    """
+    Creates a Dash DataTable with columns and data from the given DataFrame.
+    Includes basic styling for responsiveness and readability.
+    """
+    return dash_table.DataTable(
+        columns=[{"name": str(i), "id": str(i)} for i in dataframe.columns],
+        data=dataframe.to_dict('records'),
+        style_table={"overflowX": "auto"},
+        style_cell={"textAlign": "left", "padding": "5px"},
+    )
+
+
