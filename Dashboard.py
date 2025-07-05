@@ -1,6 +1,11 @@
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.pipeline import make_pipeline
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import plotly.express as px
 import plotly.graph_objects as go
 from dash import Dash, dcc, html, Input, Output, State, ctx, dash_table, no_update
@@ -16,40 +21,28 @@ df = pd.DataFrame()
 
 # Define the layout of the Dash application
 app.layout = dbc.Container([
-    # Page title
     html.H1("Healthcare Mortality Analysis Dashboard (Malaysia)", className="text-center my-4"),
 
-    # Component for uploading a CSV file
     dcc.Upload(
         id='upload-data',
-        children=html.Div([
-            'Drag and Drop or ', html.A('Select a CSV File')
-        ]),
+        children=html.Div(['Drag and Drop or ', html.A('Select a CSV File')]),
         style={
             'width': '100%', 'height': '60px', 'lineHeight': '60px',
             'borderWidth': '1px', 'borderStyle': 'dashed',
-            'borderRadius': '5px', 'textAlign': 'center',
-            'margin-bottom': '20px'
+            'borderRadius': '5px', 'textAlign': 'center', 'margin-bottom': '20px'
         },
         multiple=False
     ),
 
-    # Component to trigger file download (for cleaned data)
     dcc.Download(id="download-dataframe-csv"),
 
-    # Button to export the cleaned data
     dbc.Button("Export Cleaned Data", id="btn-download", color="primary", className="mb-3"),
 
-    # Tabs component to display different analysis sections
     dbc.Tabs(id='tabs-content', children=[])
 ], fluid=True)
 
 # Helper function to create a Dash DataTable from a DataFrame
 def safe_table(dataframe):
-    """
-    Creates a Dash DataTable with columns and data from the given DataFrame.
-    Includes basic styling for responsiveness and readability.
-    """
     return dash_table.DataTable(
         columns=[{"name": str(i), "id": str(i)} for i in dataframe.columns],
         data=dataframe.to_dict('records'),
@@ -122,7 +115,8 @@ def generate_dashboard_content(df_data):
         "Value": [round(r2_lin, 4), round(rmse_lin, 2), round(mae_lin, 2)]
     })
 
-    #Deaths Heatmap
+
+    # Deaths Heatmap
     pivot = df.pivot_table(index='Cause Name', columns='Year', values='Deaths', aggfunc='sum')
     heatmap_fig = px.imshow(pivot, text_auto=True, aspect="auto", title="Heatmap of Deaths by Cause and Year")
     heat_stats = pivot.describe().round(2).reset_index()
@@ -149,6 +143,14 @@ def generate_dashboard_content(df_data):
     poly_fig.update_layout(title="Polynomial Regression Fit (Degree 2)",
                            xaxis_title="Year", yaxis_title="Deaths")
 
+    # Table of Actual vs Predicted Deaths (Polynomial)
+    poly_results_df = pd.DataFrame({
+    "Year": yearly['Year'],
+    "Actual Deaths": yearly['Deaths'].astype(int),
+    "Predicted Deaths": poly_preds.astype(int)
+    })
+
+
     # Polynomial Regression Metrics
     r2_poly = r2_score(y, poly_preds)
     rmse_poly = mean_squared_error(y, poly_preds, squared=False)
@@ -158,6 +160,7 @@ def generate_dashboard_content(df_data):
         "Metric": ["R²", "RMSE", "MAE"],
         "Value": [round(r2_poly, 4), round(rmse_poly, 2), round(mae_poly, 2)]
     })
+
 
     # Return all Tabs
     return [
@@ -184,7 +187,12 @@ def generate_dashboard_content(df_data):
         ]),
         dbc.Tab(label='Polynomial Regression', children=[
             dcc.Graph(figure=poly_fig),
-            html.H5("Model Evaluation Metrics"), safe_table(poly_metrics_df)
+            html.Br(),
+            html.H5("Actual vs Predicted Deaths (Polynomial Regression)"),
+            safe_table(poly_results_df),
+            html.Br(),
+            html.H5("Model Evaluation Metrics"),
+            safe_table(poly_metrics_df)
         ])
     ]
 
@@ -198,7 +206,6 @@ def generate_dashboard_content(df_data):
     State('upload-data', 'contents'),
     prevent_initial_call=True
 )
-
 def update_output(contents, filename, n_clicks, contents_export):
     trigger_id = ctx.triggered_id
 
@@ -227,9 +234,9 @@ def update_output(contents, filename, n_clicks, contents_export):
             df_export = df_export[df_export['State'] != 'United States'].copy()
 
             malaysian_states = [
-            "Johor", "Kedah", "Kelantan", "Melaka", "Negeri Sembilan",
-            "Pahang", "Penang", "Perak", "Perlis", "Sabah", "Sarawak",
-            "Selangor", "Terengganu", "Kuala Lumpur", "Putrajaya", "Labuan"
+                "Johor", "Kedah", "Kelantan", "Melaka", "Negeri Sembilan",
+                "Pahang", "Penang", "Perak", "Perlis", "Sabah", "Sarawak",
+                "Selangor", "Terengganu", "Kuala Lumpur", "Putrajaya", "Labuan"
             ]
             us_states = df_export['State'].unique()
             np.random.seed(42)
@@ -241,12 +248,7 @@ def update_output(contents, filename, n_clicks, contents_export):
             print(f"Error during CSV export: {e}")
             return no_update, None
 
-
     return no_update, no_update
 
 if __name__ == '__main__':
     app.run(debug=True, port=8051)
-
-
-
-
