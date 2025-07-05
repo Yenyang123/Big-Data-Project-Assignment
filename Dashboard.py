@@ -5,7 +5,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score, silhouette_score, davies_bouldin_score
 import plotly.express as px
 import plotly.graph_objects as go
 from dash import Dash, dcc, html, Input, Output, State, ctx, dash_table, no_update
@@ -121,14 +121,24 @@ def generate_dashboard_content(df_data):
     heatmap_fig = px.imshow(pivot, text_auto=True, aspect="auto", title="Heatmap of Deaths by Cause and Year")
     heat_stats = pivot.describe().round(2).reset_index()
 
-    # K-Means Clustering
-    cluster_df = yearly.copy()
+    # K-Means Clustering Section
+    yearly = df.groupby('Year')['Deaths'].sum().reset_index()
     scaler = StandardScaler()
-    scaled = scaler.fit_transform(cluster_df[['Year', 'Deaths']])
-    kmeans = KMeans(n_clusters=3, random_state=42)
-    cluster_df['Cluster'] = kmeans.fit_predict(scaled)
-    cluster_fig = px.scatter(cluster_df, x='Year', y='Deaths', color='Cluster',
-                             title="K-Means Clustering of Deaths Over Time")
+    scaled = scaler.fit_transform(yearly[['Year', 'Deaths']])
+
+    kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
+    yearly['Cluster'] = kmeans.fit_predict(scaled)
+
+    cluster_fig = px.scatter(yearly, x='Year', y='Deaths', color='Cluster', title="K-Means Clustering of Deaths Over Time")
+
+    # Calculate clustering metrics
+    silhouette = silhouette_score(scaled, yearly['Cluster'])
+    davies = davies_bouldin_score(scaled, yearly['Cluster'])
+
+    cluster_metrics = pd.DataFrame({
+        'Metric': ['Silhouette Score', 'Davies-Bouldin Index'],
+        'Value': [round(silhouette, 4), round(davies, 4)]
+    })
 
     # Polynomial Regression
     poly_model = make_pipeline(PolynomialFeatures(degree=2), LinearRegression())
@@ -183,7 +193,10 @@ def generate_dashboard_content(df_data):
         ]),
         dbc.Tab(label='K-Means Clustering', children=[
             dcc.Graph(figure=cluster_fig),
-            html.Br(), safe_table(cluster_df)
+            html.Br(),
+            safe_table(yearly),
+            html.H5("Clustering Evaluation Metrics"),
+            safe_table(cluster_metrics)
         ]),
         dbc.Tab(label='Polynomial Regression', children=[
             dcc.Graph(figure=poly_fig),
@@ -251,4 +264,4 @@ def update_output(contents, filename, n_clicks, contents_export):
     return no_update, no_update
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8051)
+    app.run(debug=True, port=8052)
