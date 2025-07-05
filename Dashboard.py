@@ -136,6 +136,117 @@ def generate_dashboard_content(df_data):
     cluster_fig = px.scatter(cluster_df, x='Year', y='Deaths', color='Cluster',
                              title="K-Means Clustering of Deaths Over Time")
 
+    # Polynomial Regression
+    poly_model = make_pipeline(PolynomialFeatures(degree=2), LinearRegression())
+    poly_model.fit(X, y)
+    poly_preds = poly_model.predict(X)
+    poly_fig = go.Figure()
+    poly_fig.add_trace(go.Scatter(x=yearly['Year'], y=yearly['Deaths'],
+                                  mode='markers+lines', name='Actual Deaths'))
+    poly_fig.add_trace(go.Scatter(x=yearly['Year'], y=poly_preds,
+                                  mode='lines', name='Polynomial Fit',
+                                  line=dict(color='purple')))
+    poly_fig.update_layout(title="Polynomial Regression Fit (Degree 2)",
+                           xaxis_title="Year", yaxis_title="Deaths")
+
+    # Polynomial Regression Metrics
+    r2_poly = r2_score(y, poly_preds)
+    rmse_poly = mean_squared_error(y, poly_preds, squared=False)
+    mae_poly = mean_absolute_error(y, poly_preds)
+
+    poly_metrics_df = pd.DataFrame({
+        "Metric": ["R²", "RMSE", "MAE"],
+        "Value": [round(r2_poly, 4), round(rmse_poly, 2), round(mae_poly, 2)]
+    })
+
+    # Return all Tabs
+    return [
+        dbc.Tab(label='Top Causes by State', children=[
+            dcc.Graph(figure=bar_fig),
+            html.Br(), safe_table(top5_stats)
+        ]),
+        dbc.Tab(label='Heart Disease Trends', children=[
+            dcc.Graph(figure=line_fig),
+            html.Br(), safe_table(heart_summary)
+        ]),
+        dbc.Tab(label='Forecasting (Regression)', children=[
+            dcc.Graph(figure=regression_fig),
+            html.Br(), safe_table(pred_df),
+            html.H5("Model Evaluation Metrics"), safe_table(lin_metrics_df)
+        ]),
+        dbc.Tab(label='Deaths Heatmap', children=[
+            dcc.Graph(figure=heatmap_fig),
+            html.Br(), safe_table(heat_stats)
+        ]),
+        dbc.Tab(label='K-Means Clustering', children=[
+            dcc.Graph(figure=cluster_fig),
+            html.Br(), safe_table(cluster_df)
+        ]),
+        dbc.Tab(label='Polynomial Regression', children=[
+            dcc.Graph(figure=poly_fig),
+            html.H5("Model Evaluation Metrics"), safe_table(poly_metrics_df)
+        ])
+    ]
+
+# Callback to handle file uploads and data export (CSV)
+@app.callback(
+    Output('tabs-content', 'children'),
+    Output('download-dataframe-csv', 'data'),
+    Input('upload-data', 'contents'),
+    State('upload-data', 'filename'),
+    Input('btn-download', 'n_clicks'),
+    State('upload-data', 'contents'),
+    prevent_initial_call=True
+)
+
+def update_output(contents, filename, n_clicks, contents_export):
+    trigger_id = ctx.triggered_id
+
+    if trigger_id == 'upload-data' and contents:
+        content_type, content_string = contents.split(',')
+        decoded = base64.b64decode(content_string)
+        try:
+            if 'csv' in filename:
+                df_temp = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+            else:
+                return html.Div(['This file type is not supported. Please upload a CSV file.']), no_update
+        except Exception as e:
+            return html.Div([f'There was an error processing this file: {e}']), no_update
+
+        tabs = generate_dashboard_content(df_temp)
+        return tabs, no_update
+
+    elif trigger_id == 'btn-download' and contents_export:
+        content_type, content_string = contents_export.split(',')
+        decoded = base64.b64decode(content_string)
+        try:
+            df_export = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+            # Apply the same cleaning and mapping as in generate_dashboard_content
+            df_export['Deaths'] = pd.to_numeric(df_export['Deaths'].astype(str).str.replace(',', ''), errors='coerce')
+            df_export['Age-adjusted Death Rate'] = pd.to_numeric(df_export['Age-adjusted Death Rate'], errors='coerce')
+            df_export = df_export[df_export['State'] != 'United States'].copy()
+
+            malaysian_states = [
+            "Johor", "Kedah", "Kelantan", "Melaka", "Negeri Sembilan",
+            "Pahang", "Penang", "Perak", "Perlis", "Sabah", "Sarawak",
+            "Selangor", "Terengganu", "Kuala Lumpur", "Putrajaya", "Labuan"
+            ]
+            us_states = df_export['State'].unique()
+            np.random.seed(42)
+            state_map = dict(zip(us_states, np.random.choice(malaysian_states, size=len(us_states), replace=True)))
+            df_export['State'] = df_export['State'].map(state_map)
+
+            return no_update, dcc.send_data_frame(df_export.to_csv, "cleaned_mortality_data.csv", index=False)
+        except Exception as e:
+            print(f"Error during CSV export: {e}")
+            return no_update, None
+
+
+    return no_update, no_update
+
+if __name__ == '__main__':
+    app.run(debug=True, port=8051)
+
 
 
 
