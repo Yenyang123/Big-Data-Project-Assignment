@@ -1,8 +1,7 @@
 import pandas as pd
 import base64
 import io
-from dash import dcc
-import dash_table
+from dash import dcc, dash_table
 
 def process_uploaded_file(contents, filename):
     content_type, content_string = contents.split(',')

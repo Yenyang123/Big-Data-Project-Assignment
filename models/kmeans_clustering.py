@@ -1,6 +1,7 @@
 from dash import dcc, html
 import plotly.express as px
 import pandas as pd
+import dash_bootstrap_components as dbc
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score, davies_bouldin_score

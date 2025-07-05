@@ -4,7 +4,7 @@ from models.Linear_regression import linear_regression_tab
 from models.Polynomial_regression import polynomial_regression_tab
 from models.kmeans_clustering import kmeans_tab
 import plotly.express as px
-from .utils.data_processing import safe_table
+from utils.data_processing import safe_table
 
 def create_dashboard():
     return dbc.Container([
