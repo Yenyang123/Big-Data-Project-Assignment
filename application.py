@@ -19,17 +19,19 @@ app.layout = create_dashboard()
     State('upload-data', 'filename'),
     Input('btn-download', 'n_clicks'),
     State('upload-data', 'contents'),
+    Input('prediction-horizon', 'value'),  # 👈 Added this line to capture horizon
     prevent_initial_call=True
 )
-def handle_callbacks(contents, filename, n_clicks, contents_export):
+def handle_callbacks(contents, filename, n_clicks, contents_export, horizon):  # 👈 Added horizon here
     trigger_id = ctx.triggered_id
 
     if trigger_id == 'upload-data' and contents:
         df_temp = process_uploaded_file(contents, filename)
         if isinstance(df_temp, str):
             return html.Div([df_temp]), no_update
+
         from Dashboard import generate_dashboard_content
-        tabs = generate_dashboard_content(df_temp)
+        tabs = generate_dashboard_content(df_temp, horizon)  # 👈 Pass horizon here
         return tabs, no_update
 
     elif trigger_id == 'btn-download' and contents_export:
@@ -39,6 +41,7 @@ def handle_callbacks(contents, filename, n_clicks, contents_export):
         return no_update, None
 
     return no_update, no_update
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=8052)
